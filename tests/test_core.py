@@ -20,14 +20,14 @@ def test_chain_fluent():
         .map(lambda x: x * 2)
         .tap(lambda x: print(f"Debug: {x}"))
         .then(lambda x: x + 5)
-        .unwrap()
+        .value
     )
     assert res == 15
 
 
 def test_chain_operator():
     # Testing the | operator
-    res = (Chain(10) | (lambda x: x / 2) | int).unwrap()
+    res = (Chain(10) | (lambda x: x / 2) | int).value
     assert res == 5
 
 
@@ -40,4 +40,4 @@ def test_option_some():
 def test_option_none():
     opt = Option(10).filter(lambda x: x > 100).map(lambda x: x * 2)
     assert opt.is_none()
-    assert opt.unwrap_or(999) == 999
+    assert opt.unwrap(default=999) == 999

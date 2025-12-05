@@ -96,6 +96,13 @@ class Chain[T]:
         ensure(self._value, error)
         return self
 
+    def __eq__(self, other: object) -> bool:
+        """Checks equality against another Chain or the raw value."""
+        if isinstance(other, Chain):
+            return self._value == other._value
+
+        return self._value == other
+
     @property
     def value(self) -> T:
         """Return the raw value (property). No checks performed."""
@@ -116,14 +123,15 @@ class Option[T]:
     def __init__(self, value: T | None):
         self._value = value
 
+    @classmethod
+    def of(cls, value: T | None) -> "Option[T]":
+        return cls(value)
+
     def is_some(self) -> bool:
         return self._value is not None
 
     def is_none(self) -> bool:
         return self._value is None
-
-    def __nonzero__(self) -> bool:
-        return self.is_some()
 
     def unwrap(
         self,
@@ -158,3 +166,10 @@ class Option[T]:
             return self
 
         return Option(None)
+
+    def __eq__(self, other: object) -> bool:
+        """Checks equality against another Option or the raw value."""
+        if isinstance(other, Option):
+            return self._value == other._value
+
+        return self._value == other
