@@ -14,6 +14,7 @@ def ensure[T](
     if value is None:
         if isinstance(error, str):
             raise ValueError(error)
+
         raise error
     return value
 
@@ -31,8 +32,10 @@ def pipe[T](value: T, *funcs: Callable[[Any], Any]) -> Any:
     Pipes a value through a sequence of functions.
     """
     result = value
+
     for func in funcs:
         result = func(result)
+
     return result
 
 
@@ -107,7 +110,7 @@ class Option[T]:
     def unwrap_or(self, default: T) -> T:
         return self._value if self._value is not None else default
 
-    def map(self, func: Callable[[T], U]) -> "Option[U]":
+    def map[U](self, func: Callable[[T], U]) -> "Option[U]":
         if self._value is None:
             return Option(None)
 
