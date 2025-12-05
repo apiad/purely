@@ -64,16 +64,16 @@ release: format-check
 	@echo Replace version in pyproject.toml
 	@sed -i.bak "s/version = \"$(CURRENT_VERSION)\"/version = \"$(NEW_VERSION)\"/" pyproject.toml
 
-	@echo Replace version in purely/__init__.py
-	@sed -i.bak "s/__version__ = \"$(CURRENT_VERSION)\"/__version__ = \"$(NEW_VERSION)\"/" purely/__init__.py
+	@echo Replace version in src/purely/__init__.py
+	@sed -i.bak "s/__version__ = \"$(CURRENT_VERSION)\"/__version__ = \"$(NEW_VERSION)\"/" src/purely/__init__.py
 
 	@echo Remove backup files
-	@rm pyproject.toml.bak purely/__init__.py.bak
+	@rm pyproject.toml.bak src/purely/__init__.py.bak
 
 	@uv sync
 
 	@echo "Committing version bump..."
-	@git add pyproject.toml purely/__init__.py uv.lock
+	@git add pyproject.toml src/purely/__init__.py uv.lock
 	@git commit -m "Bump version to $(NEW_VERSION)"
 
 	@echo "Tagging new version..."
