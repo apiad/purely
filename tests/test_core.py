@@ -32,12 +32,12 @@ def test_chain_operator():
 
 
 def test_option_some():
-    opt = Option.of(10).map(lambda x: x * 2).filter(lambda x: x > 5)
+    opt = Option(10).map(lambda x: x * 2).filter(lambda x: x > 5)
     assert opt.is_some()
     assert opt.unwrap() == 20
 
 
 def test_option_none():
-    opt = Option.of(10).filter(lambda x: x > 100).map(lambda x: x * 2)
+    opt = Option(10).filter(lambda x: x > 100).map(lambda x: x * 2)
     assert opt.is_none()
     assert opt.unwrap_or(999) == 999
