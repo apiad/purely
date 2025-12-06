@@ -155,8 +155,8 @@ assert result == "Recovered"
 
 Under the hood, `safe` uses `Option`. You can use it directly for functional null handling.
 
-  * `.map(func)`: Transforms value only if it exists.
-  * `.filter(predicate)`: Turns value to `None` if predicate fails.
+  * `.convert(func)`: Transforms value only if it exists.
+  * `.keepif(predicate)`: Turns value to `None` if predicate fails.
   * `.unwrap(default=...)`: Extracts value or returns default.
 
 <!-- end list -->
@@ -164,7 +164,7 @@ Under the hood, `safe` uses `Option`. You can use it directly for functional nul
 ```python
 from purely import Option
 
-val = Option(10).map(lambda x: x * 2).filter(lambda x: x > 50)
+val = Option(10).convert(lambda x: x * 2).keepif(lambda x: x > 50)
 assert val.is_none()
 ```
 
