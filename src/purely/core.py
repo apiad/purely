@@ -1,5 +1,6 @@
+from __future__ import annotations
 import functools
-from typing import Callable, Any
+from typing import Callable, Any, TypeVar, overload, TYPE_CHECKING, cast
 
 """
 PURELY 💧
@@ -10,122 +11,25 @@ Embrace purity, banish boilerplate.
 # Sentinel for missing values
 _SENTINEL = object()
 
-# -----------------------------------------------------------------------------
-# 1. THE ESSENTIALS (Direct helpers)
-# -----------------------------------------------------------------------------
-
-
-def ensure[T](
-    value: T | None, error: str | Exception = ValueError("Value is None")
-) -> T:
-    """
-    Takes a value T | None. Returns T or raises an exception.
-    Similar to Rust's unwrap().
-
-    Usage:
-        user_id = purely.ensure(get_id(), "User ID missing")
-    """
-    if value is None:
-        if isinstance(error, str):
-            raise ValueError(error)
-        raise error
-    return value
-
-
-def tap[T](value: T, func: Callable[[T], Any]) -> T:
-    """
-    Executes a function for side effects (like logging) and returns the original value.
-    Useful for debugging fluent chains without breaking them.
-    """
-    func(value)
-    return value
-
-
-def pipe[T](value: T, *funcs: Callable[[Any], Any]) -> Any:
-    """
-    Pipes a value through a sequence of functions.
-    pipe(x, f, g, h) is equivalent to h(g(f(x)))
-    """
-    result = value
-    for func in funcs:
-        result = func(result)
-    return result
+# Type variable for generics
+T = TypeVar("T")
 
 
 # -----------------------------------------------------------------------------
-# 2. THE FLUENT INTERFACE (Chain)
-# -----------------------------------------------------------------------------
-
-
-class Chain[T]:
-    """
-    A wrapper to allow method chaining on any object.
-
-    Usage:
-        Chain(5).map(double).value
-        Chain(5) | double | str
-    """
-
-    def __init__(self, value: T):
-        self._value = value
-
-    def map[U](self, func: Callable[[T], U]) -> "Chain[U]":
-        """Apply a function to the contained value."""
-        return Chain(func(self._value))
-
-    def then[U](self, func: Callable[[T], U]) -> "Chain[U]":
-        """Alias for map, reads better in some contexts."""
-        return self.map(func)
-
-    def __or__[U](self, func: Callable[[T], U]) -> "Chain[U]":
-        """
-        Allows usage of the pipe operator | to chain functions.
-        Chain(5) | double | str
-        """
-        return self.map(func)
-
-    def tap(self, func: Callable[[T], Any]) -> "Chain[T]":
-        """Run a side effect, ignore return, pass original value forward."""
-        func(self._value)
-        return self
-
-    def ensure(
-        self, error: str | Exception = ValueError("Chain value is None")
-    ) -> "Chain[T]":
-        """Asserts the internal value is not None."""
-        ensure(self._value, error)
-        return self
-
-    def __eq__(self, other: object) -> bool:
-        """Checks equality against another Chain or the raw value."""
-        if isinstance(other, Chain):
-            return self._value == other._value
-
-        return self._value == other
-
-    @property
-    def value(self) -> T:
-        """Return the raw value (property). No checks performed."""
-        return self._value
-
-
-# -----------------------------------------------------------------------------
-# 3. RUST-STYLE OPTION (Safe handling)
+# 1. RUST-STYLE OPTION (Defined first for dependency reasons)
 # -----------------------------------------------------------------------------
 
 
 class Option[T]:
     """
     A container that represents either a value (Some) or nothing (None).
-    Forces safe handling of nullables.
+
+    It wraps any object and provides general attribute access (getattr),
+    item getters and setters, and calling, to allow null-safe navigation.
     """
 
     def __init__(self, value: T | None):
         self._value = value
-
-    @classmethod
-    def of(cls, value: T | None) -> "Option[T]":
-        return cls(value)
 
     def is_some(self) -> bool:
         return self._value is not None
@@ -138,38 +42,172 @@ class Option[T]:
         default: Any = _SENTINEL,
         error: str | Exception = ValueError("Called unwrap on None"),
     ) -> T:
-        """
-        Returns the contained value.
-
-        If the value is None:
-            1. Returns 'default' if provided.
-            2. Raises 'error' if no default is provided.
-        """
+        """Returns the contained value or raises error/returns default."""
         if self._value is not None:
             return self._value
 
         if default is not _SENTINEL:
             return default
 
-        return ensure(self._value, error)
+        # Use the global ensure logic (which handles exceptions)
+        if isinstance(error, str):
+            raise ValueError(error)
 
-    def map[U](self, func: Callable[[T], U]) -> "Option[U]":
-        """If Some, applies func. If None, stays None."""
+        raise error
+
+    def map[U](self, func: Callable[[T], U]) -> Option[U]:
+        """Strictly typed transformation."""
+        if self._value is None:
+            return Option(None)
+        return Option(func(self._value))
+
+    def filter(self, predicate: Callable[[T], bool]) -> Option[T]:
+        if self._value is not None and predicate(self._value):
+            return self
+        return Option(None)
+
+    # --- Null Coalescing / Safe Navigation Proxies ---
+
+    def __getattr__(self, name: str) -> Option[Any]:
+        """
+        Runtime hook for safe attribute access.
+        Option(obj).attr returns Option(obj.attr) or Option(None).
+        """
         if self._value is None:
             return Option(None)
 
-        return Option(func(self._value))
+        return Option(getattr(self._value, name))
 
-    def filter(self, predicate: Callable[[T], bool]) -> "Option[T]":
-        """If Some and predicate is true, keep it. Else become None."""
-        if self._value is not None and predicate(self._value):
-            return self
+    def __call__(self, *args: Any, **kwargs: Any) -> Option[Any]:
+        """
+        Runtime hook for safe method calls.
+        Option(func)(args) returns Option(func(args)) or Option(None).
+        """
+        if self._value is None:
+            return Option(None)
 
-        return Option(None)
+        caller = getattr(self._value, "__call__")
+        return Option(caller(*args, **kwargs))
+
+    def __getitem__(self, key: Any) -> Option[Any]:
+        """
+        Runtime hook for safe item access.
+        Option(obj)[key] returns Option(obj[key]) or Option(None).
+        """
+        if self._value is None:
+            return Option(None)
+
+        getter = getattr(self._value, "__getitem__")
+        return Option(getter(key))
+
+    def __setitem__(self, key: Any, value: Any):
+        """
+        Runtime hook for safe item setting.
+        Option(obj)[key] = value will work if the underlying works.
+        """
+        if self._value is None:
+            pass
+
+        setter = getattr(self._value, "__setitem__")
+        setter(key, value)
 
     def __eq__(self, other: object) -> bool:
-        """Checks equality against another Option or the raw value."""
+        """
+        Check the underlying value for equality.
+        """
         if isinstance(other, Option):
             return self._value == other._value
 
+        return self._value == other
+
+
+# -----------------------------------------------------------------------------
+# 2. CORE UTILITIES (ensure, tap, safe)
+# -----------------------------------------------------------------------------
+
+
+def ensure(
+    value: T | Option[T] | None, error: str | Exception = ValueError("Value is None")
+) -> T:
+    """
+    Asserts existence.
+
+    If 'value' is an Option (from safe() runtime), it unwraps it.
+    If 'value' is a raw value (from safe() static lie), it checks for None.
+    """
+    # Runtime check: Handle the 'Safe' proxy case
+    if isinstance(value, Option):
+        return value.unwrap(error=error)
+
+    if value is None:
+        if isinstance(error, str):
+            raise ValueError(error)
+
+        raise error
+
+    return cast(T, value)
+
+
+def safe[T](obj: T | None) -> T:
+    """
+    Wraps a object in Option[T] but returns T typehint.
+
+    This allows the user you continue using Intellisense
+    and type-checking from the IDE but maintaining the
+    null-safe navigation.
+    """
+    return cast(T, Option(obj))
+
+
+def tap[T](value: T, func: Callable[[T], Any]) -> T:
+    """Executes func for side effects and returns value."""
+    func(value)
+    return value
+
+
+def pipe[T](value: T, *funcs: Callable[[Any], Any]) -> Any:
+    """Pipes value through functions."""
+    result = value
+    for func in funcs:
+        result = func(result)
+    return result
+
+
+# -----------------------------------------------------------------------------
+# 3. FLUENT INTERFACE (Chain)
+# -----------------------------------------------------------------------------
+
+
+class Chain[T]:
+    """Wrapper for method chaining."""
+
+    def __init__(self, value: T):
+        self._value = value
+
+    def map[U](self, func: Callable[[T], U]) -> Chain[U]:
+        return Chain(func(self._value))
+
+    def then[U](self, func: Callable[[T], U]) -> Chain[U]:
+        return self.map(func)
+
+    def __or__[U](self, func: Callable[[T], U]) -> Chain[U]:
+        return self.map(func)
+
+    def tap(self, func: Callable[[T], Any]) -> Chain[T]:
+        func(self._value)
+        return self
+
+    def ensure(
+        self, error: str | Exception = ValueError("Chain value is None")
+    ) -> Chain[T]:
+        ensure(self._value, error)
+        return self
+
+    @property
+    def value(self) -> T:
+        return self._value
+
+    def __eq__(self, other: object) -> bool:
+        if isinstance(other, Chain):
+            return self._value == other._value
         return self._value == other
