@@ -127,10 +127,5 @@ def test_ensure_integration():
     # Wrapped Option
     assert ensure(Option("wrapped")) == "wrapped"
 
-    # Safe chain result
-    assert (
-        ensure(safe(User()).address) is None
-    )  # It unwraps the Option(None) -> None -> Raise
-
     with pytest.raises(ValueError):
-        ensure(Option(None))
+        ensure(safe(User()).address)

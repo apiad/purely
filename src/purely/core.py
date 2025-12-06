@@ -1,6 +1,6 @@
 from __future__ import annotations
 import functools
-from typing import Callable, Any, TypeVar, overload, TYPE_CHECKING, cast
+from typing import Callable, Any, Iterable, TypeVar, overload, TYPE_CHECKING, cast
 
 """
 PURELY 💧
@@ -179,35 +179,135 @@ def pipe[T](value: T, *funcs: Callable[[Any], Any]) -> Any:
 
 
 class Chain[T]:
-    """Wrapper for method chaining."""
+    """
+    A unified, monadic container for:
 
-    def __init__(self, value: T):
+    1. Pipelines (then)
+    2. Vectorized Operations (map, filter)
+    3. Error Handling (catch, test)
+    """
+
+    def __init__(self, value: T | None, error: Exception | None = None):
         self._value = value
+        self._error = error
 
-    def map[U](self, func: Callable[[T], U]) -> Chain[U]:
-        return Chain(func(self._value))
-
-    def then[U](self, func: Callable[[T], U]) -> Chain[U]:
-        return self.map(func)
-
-    def __or__[U](self, func: Callable[[T], U]) -> Chain[U]:
-        return self.map(func)
-
-    def tap(self, func: Callable[[T], Any]) -> Chain[T]:
-        func(self._value)
-        return self
-
-    def ensure(
-        self, error: str | Exception = ValueError("Chain value is None")
-    ) -> Chain[T]:
-        ensure(self._value, error)
-        return self
+    @classmethod
+    def fail(cls, error: Exception) -> Chain[Any]:
+        """Factory: Create a Chain in a failed state."""
+        return cls(None, error)
 
     @property
-    def value(self) -> T:
-        return self._value
+    def is_ok(self) -> bool:
+        return self._error is None
 
-    def __eq__(self, other: object) -> bool:
-        if isinstance(other, Chain):
-            return self._value == other._value
-        return self._value == other
+    # --- Pipeline Operations ---
+
+    def then[R](self, func: Callable[[T], R]) -> Chain[R]:
+        """
+        Pipes the *entire* value through func.
+
+        Chain(5).then(lambda x: x * 2) -> Chain(10)
+        Chain(None).then(lambda x: x + 1) -> Chain(Error) [Swallows exception]
+        """
+        if self._error:
+            return cast(Chain[R], self)
+
+        try:
+            return Chain(func(self._value))  # type: ignore
+        except Exception as e:
+            return Chain(None, error=e)
+
+    def __or__[R](self, func: Callable[[T], R]) -> Chain[R]:
+        """Syntactic sugar for .then()"""
+        return self.then(func)
+
+    # --- Vectorized Operations (Seq) ---
+
+    def map[R](self, func: Callable[[Any], R]) -> Chain[Iterable[R]]:
+        """
+        Maps func over *each item* in the internal value.
+
+        Requirements:
+        1. Value must be Iterable (list, tuple, etc.)
+        2. Value must NOT be str or bytes (to avoid accidental char mapping)
+
+        If requirements fail, the Chain switches to Error state.
+        """
+        if self._error:
+            return cast(Chain[Iterable[R]], self)
+
+        try:
+            val = self._value
+
+            if not isinstance(val, Iterable) or isinstance(val, (str, bytes)):
+                raise TypeError(f"Chain.map expects a non-string Iterable, got {type(val).__name__}")
+
+            # Greedily evaluate to list to catch errors immediately during iteration
+            return Chain([func(x) for x in val])
+        except Exception as e:
+            return Chain(None, error=e)
+
+    def filter(self, predicate: Callable[[Any], bool]) -> Chain[list]:
+        """
+        Filters *each item* in the internal value.
+        Same strict iterable requirements as .map().
+        """
+        if self._error:
+            return cast(Chain[list], self)
+
+        try:
+            val = self._value
+            if not isinstance(val, Iterable) or isinstance(val, (str, bytes)):
+                raise TypeError(f"Chain.filter expects a non-string Iterable, got {type(val).__name__}")
+
+            return Chain([x for x in val if predicate(x)])
+        except Exception as e:
+            return Chain(None, error=e)
+
+    # --- Error Handling & Exiting ---
+
+    def unwrap(self, default: Any = _SENTINEL) -> T:
+        """
+        Returns value if OK.
+        If Error: Raises the error (or returns default if provided).
+        """
+        if self._error is None:
+            return cast(T, self._value)
+
+        if default is not _SENTINEL:
+            return default
+
+        raise self._error
+
+    def catch(self, func: Callable[[Exception], T]) -> Chain[T]:
+        """
+        Recovers from an error state.
+        If Error: Runs func(error) to get a new value (and clears error).
+        If OK: Skips.
+        """
+        if self._error is None:
+            return self
+
+        try:
+            # Recover!
+            return Chain(func(self._error))
+        except Exception as e:
+            # Recovery failed, new error replaces old one
+            return Chain(None, error=e)
+
+    def test(self) -> None:
+        """
+        Terminal check.
+        If Error: Raises it immediately.
+        If OK: Does nothing.
+        Useful for 'asserting' a chain succeeded without returning a value.
+        """
+        if self._error:
+            raise self._error
+
+    def error(self) -> Exception | None:
+        """
+        Returns the exception object if failed, else None.
+        (Renamed from 'fail' to avoid conflict with classmethod factory)
+        """
+        return self._error
