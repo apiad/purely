@@ -221,7 +221,7 @@ class Chain[T]:
         """Syntactic sugar for .then()"""
         return self.then(func)
 
-    def tap(self, func: Callable[[T]]) -> Chain[T]:
+    def tap(self, func: Callable[[T], Any]) -> Chain[T]:
         if self.is_ok:
             try:
                 func(self._value)  # type: ignore

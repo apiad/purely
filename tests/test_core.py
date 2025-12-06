@@ -17,7 +17,7 @@ def test_pipe():
 def test_chain_fluent():
     res = (
         Chain(5)
-        .map(lambda x: x * 2)
+        .then(lambda x: x * 2)
         .tap(lambda x: print(f"Debug: {x}"))
         .then(lambda x: x + 5)
     )
