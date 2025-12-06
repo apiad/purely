@@ -1,6 +1,6 @@
 from __future__ import annotations
 import functools
-from typing import Callable, Any, Iterable, TypeVar, overload, TYPE_CHECKING, cast
+from typing import Callable, Any, Iterable, Self, TypeVar, overload, TYPE_CHECKING, cast
 
 """
 PURELY 💧
@@ -221,6 +221,15 @@ class Chain[T]:
         """Syntactic sugar for .then()"""
         return self.then(func)
 
+    def tap(self, func: Callable[[T]]) -> Chain[T]:
+        if self.is_ok:
+            try:
+                func(self._value)  # type: ignore
+            except Exception as e:
+                return Chain(None, e)
+
+        return self
+
     # --- Vectorized Operations (Seq) ---
 
     def map[R](self, func: Callable[[Any], R]) -> Chain[Iterable[R]]:
@@ -315,3 +324,11 @@ class Chain[T]:
         (Renamed from 'fail' to avoid conflict with classmethod factory)
         """
         return self._error
+
+    def __eq__(self, other):
+        self.test()
+
+        if isinstance(other, (Chain, Option)):
+            return self._value == other.unwrap()
+
+        return self._value == other
