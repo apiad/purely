@@ -1,6 +1,5 @@
 from __future__ import annotations
-import functools
-from typing import Callable, Any, Iterable, Self, TypeVar, overload, TYPE_CHECKING, cast
+from typing import Callable, Any, Iterable, TypeVar, cast
 
 """
 PURELY 💧
