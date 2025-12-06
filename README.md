@@ -168,6 +168,40 @@ val = Option(10).map(lambda x: x * 2).filter(lambda x: x > 50)
 assert val.is_none()
 ```
 
+## ⚠️ Known Limitations & Trade-offs
+
+**Purely** prioritizes developer experience (readability, safety, fluency) over raw performance and strict functional purity. Before adopting it, be aware of the following design choices and trade-offs:
+
+### 1. Eager Evaluation (Not for Big Data)
+The `Chain.map()` and `Chain.filter()` methods are **eager**. They immediately consume iterators and materialize results into a list to ensure safety and immediate error capture.
+
+* **The Limitation:** Do not use `Purely` to process infinite generators or massive datasets that don't fit in memory.
+* **The Workaround:** For high-volume data processing, stick to native Python generators, `itertools`, or specialized libraries like `pandas`.
+
+### 2. Performance Overhead
+To provide fluency and safety, **Purely** creates wrapper objects (`Chain`, `Option`) for every operation.
+
+* **The Limitation:** In tight inner loops (e.g., image processing pixels, game engines), this object allocation adds significant overhead compared to raw `if/else` or native list comprehensions.
+* **The Workaround:** Use **Purely** for high-level business logic, API orchestration, and data transformation steps where readability is key. Drop down to native Python for performance-critical hot paths.
+
+### 3. "Railway" Error Handling
+`Chain` captures exceptions to prevent crashes, storing them until you explicitly check for them.
+
+* **The Limitation:** If you create a chain but forget to call `.unwrap()`, `.test()`, or `.catch()`, exceptions (like `ZeroDivisionError`) will be swallowed silently, and the program will continue in a "failed" state without alerting you.
+* **The Workaround:** Always terminate your chains. If a chain is used solely for side effects, end it with `.test()` to assert success.
+
+### 4. Debugging Proxies
+The `safe()` utility uses dynamic proxies (`__getattr__` hooks) to achieve its magic.
+
+* **The Limitation:** Debuggers may step into internal proxy code rather than your business logic, and some static analysis tools (mypy/pylint) might struggle to infer types through complex `safe()` calls without explicit hints.
+* **The Workaround:** If you run into complex type errors, use `ensure()` early to unwrap values back into standard Python types that IDEs understand perfectly.
+
+### 5. Limited Vocabulary
+**Purely** is not a full replacement for `toolz` or Haskell.
+
+* **The Limitation:** It intentionally lacks complex functional primitives like `reduce`, `flat_map`, `curry`, or `compose` to keep the API surface small and approachable.
+* **The Workaround:** If you need advanced functional patterns, **Purely** might be too simple for you. It plays nicely with standard Python, so you can mix it with standard libraries as needed.
+
 ## 🛠 Contribution
 
 We use `uv` for dependency management and `makefile` for orchestration.
