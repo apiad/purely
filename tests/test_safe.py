@@ -106,10 +106,10 @@ def test_mixed_safe_and_functional():
 
     res = (
         safe(u)
-        .address.city.name.map(  # Safe navigation -> Option("Tokyo")
+        .address.city.name.convert(  # Safe navigation -> Option("Tokyo")
             lambda s: s.upper()
         )  # Functional map -> Option("TOKYO")
-        .filter(lambda s: "Y" in s)  # Functional filter -> Option("TOKYO")
+        .keepif(lambda s: "Y" in s)  # Functional filter -> Option("TOKYO")
     )
     assert ensure(res) == "TOKYO"
 

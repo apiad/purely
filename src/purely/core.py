@@ -54,7 +54,7 @@ class Option[T]:
 
         raise error
 
-    def map[U](self, func: Callable[[T], U]) -> Option[U]:
+    def convert[U](self, func: Callable[[T], U]) -> Option[U]:
         """Strictly typed transformation."""
         if self._value is None:
             return Option(None)
@@ -62,9 +62,9 @@ class Option[T]:
         return Option(func(self._value))
 
     def __or__[U](self, func: Callable[[T], U]) -> Option[U]:
-        return self.map(func)
+        return self.convert(func)
 
-    def filter(self, predicate: Callable[[T], bool]) -> Option[T]:
+    def keepif(self, predicate: Callable[[T], bool]) -> Option[T]:
         if self._value is not None and predicate(self._value):
             return self
 
