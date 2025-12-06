@@ -59,11 +59,16 @@ class Option[T]:
         """Strictly typed transformation."""
         if self._value is None:
             return Option(None)
+
         return Option(func(self._value))
+
+    def __or__[U](self, func: Callable[[T], U]) -> Option[U]:
+        return self.map(func)
 
     def filter(self, predicate: Callable[[T], bool]) -> Option[T]:
         if self._value is not None and predicate(self._value):
             return self
+
         return Option(None)
 
     # --- Null Coalescing / Safe Navigation Proxies ---

@@ -2,115 +2,189 @@
 
 **A lightweight elixir for cleaner, safer, and more fluent Python.**
 
-**Purely** is a zero-dependency library designed to bring the best parts of functional programming--safety, pipelines, and immutability--into Python without the academic overhead.
+**Purely** is a zero-dependency library designed to bring the best parts of functional programming—safety, pipelines, and immutability—into Python without the academic overhead or complex types. It allows you to write code that reads from top to bottom, rather than inside out.
+
+## 🧠 Motivation
+
+Python is a beautiful language, but production code often becomes cluttered with defensive checks and nested function calls.
+
+1.  **The "None" Paranoia:** We often write 3 lines of code just to check if a variable exists before using it.
+2.  **Nested Hell:** Functional transformations often look like `save(validate(parse(read(data))))`, which forces you to read backwards.
+3.  **List Comprehension Fatigue:** While powerful, chaining multiple list comprehensions (map/filter/reduce) can quickly become unreadable.
+
+**Purely** solves this with three core tools: `ensure` for assertions, `safe` for null-safe navigation, and `Chain` for fluent pipelines.
 
 ## 📦 Installation
 
-**Purely** requires **Python 3.12+** (due to modern generic syntax).
+**Purely** leverages modern Python features (generics) and requires **Python 3.12+**.
 
-```
+```bash
 pip install purely
 ```
 
-## ✨ Features at a Glance
+## 🚀 Quick Start
+
+### The Old Way vs. The Purely Way
+
+```python
+from purely import ensure, safe, Chain
+
+# ❌ The Old Way: Defensive and Nested
+user_data = get_user(123)
+if user_data is None:
+    raise ValueError("User not found")
+
+city = None
+if user_data.address and user_data.address.city:
+    city = user_data.address.city.name.upper()
+
+# ✅ The Purely Way: Fluent and Safe
+user_data = ensure(get_user(123), "User not found")
+
+# Null-safe navigation + Pipeline
+city = safe(user_data).address.city.name | str.upper
+```
+
+-----
+
+## 📚 User Guide
 
 ### 1. `ensure`: The Rusty Unwrap
 
-Stop writing multiline `if x is None` checks. Assert existence in one line.
+Stop writing multiline `if x is None` checks. `ensure` asserts that a value is not `None` and returns it, acting as a type-narrowing barrier.
 
 ```python
 from purely import ensure
 
-# ❌ Old Way
-user_id = get_id()
-if user_id is None:
-    raise ValueError("User ID missing!")
+# Throws ValueError("API Key missing") if the value is None
+api_key = ensure(os.getenv("API_KEY"), "API Key missing")
 
-# ✅ The Purely Way
-user_id = ensure(get_id(), "User ID missing!")
+# Works transparently with Purely's Option/Safe types
+name = ensure(safe(user).name)
 ```
 
-### 2. `Chain`: The Fluent Pipe
+### 2. `safe`: Null-Safe Navigation
 
-Read your code from top-to-bottom, not inside-out. Use the `|` operator to pipe values through functions.
+Accessing deeply nested attributes on objects that might be `None` is a common source of `AttributeError`. The `safe` utility wraps your object in a proxy that swallows `None` errors gracefully.
+
+**Key Features:**
+
+  * **Deep Access:** Navigate attributes, items, or methods arbitrarily deep.
+  * **IDE Friendly:** Uses type hinting tricks to keep your autocomplete working.
+  * **Graceful Exit:** If any link in the chain is `None`, the whole chain returns an `Option(None)`.
+
+<!-- end list -->
+
+```python
+from purely import safe, ensure
+
+class User:
+    def __init__(self, address=None):
+        self.address = address
+
+u = User(address=None)
+
+# ❌ Raises AttributeError
+# print(u.address.city)
+
+# ✅ Returns Option(None) - No crash
+result = safe(u).address.city
+
+# Use ensure() to crash intentionally if the value MUST be there
+city = ensure(result, "City is required")
+```
+
+### 3. `Chain`: The Fluent Pipe
+
+`Chain` is a unified wrapper that allows you to pipe values through functions and perform vectorized operations on lists.
+
+#### Simple Pipelines
+
+Use `.then()` or the `|` operator to pass data forward.
 
 ```python
 from purely import Chain
 
 def double(x): return x * 2
-def shout(x): return f"{x}!"
 
-# ❌ Old Way (Nested Hell)
-result = shout(double(5))
-
-# ✅ The Purely Way
-result = Chain(5).map(double).map(shout).value
-
-# 🚀 The "Super Duper" Way (Pipe Operator)
-result = Chain(5) | double | shout
-
-# Now result == "10!"
+# 5 -> 10 -> "10"
+result = Chain(5) | double | str
+assert result.unwrap() == "10"
 ```
 
-### 3. `Option`: Type-Safe Null Handling
+#### Vectorized Operations
 
-Handle optional values gracefully. If a value becomes `None` mid-stream, the chain handles it safely instead of crashing.
+If the wrapped value is a list (or iterable), `.map()` and `.filter()` apply to **each item** in the list, not the list itself.
+
+```python
+users = ["alice", "bob", "charlie"]
+
+names = (
+    Chain(users)
+    .filter(lambda name: len(name) > 3)  # Filters list: ["alice", "charlie"]
+    .map(lambda name: name.upper())      # Maps list: ["ALICE", "CHARLIE"]
+    .unwrap()
+)
+```
+
+#### Error Handling
+
+`Chain` captures exceptions effectively, allowing you to handle errors at the end of the pipeline.
+
+```python
+result = (
+    Chain(10)
+    .then(lambda x: x / 0)        # Fails internally (ZeroDivisionError)
+    .then(lambda x: x + 10)       # Skipped
+    .catch(lambda e: "Recovered") # Catches error and returns fallback
+    .unwrap()
+)
+assert result == "Recovered"
+```
+
+### 4. `Option`: Functional Safety
+
+Under the hood, `safe` uses `Option`. You can use it directly for functional null handling.
+
+  * `.map(func)`: Transforms value only if it exists.
+  * `.filter(predicate)`: Turns value to `None` if predicate fails.
+  * `.unwrap(default=...)`: Extracts value or returns default.
+
+<!-- end list -->
 
 ```python
 from purely import Option
 
-result = (
-    Option.of(10)
-    .map(lambda x: x * 2)       # 20
-    .filter(lambda x: x > 100)  # Becomes None (20 is not > 100)
-    .map(lambda x: x + 5)       # Skipped (because it's None)
-    .unwrap(default=0)          # Returns 0 safely
-)
+val = Option(10).map(lambda x: x * 2).filter(lambda x: x > 50)
+assert val.is_none()
 ```
 
-## 📚 API Reference
+## 🛠 Contribution
 
-### Core Utilities
+We use `uv` for dependency management and `makefile` for orchestration.
 
-|Function|Description|
-|---|---|
-|`ensure(val, error)`|Returns `val` if not None, otherwise raises `error`.|
-|`tap(val, func)`|Runs `func(val)` for side effects (logging, etc) and returns `val` unchanged.|
-|`pipe(val, *funcs)`|Pushes `val` through a list of functions in order.|
+1.  **Clone and Setup:**
 
-### `Chain[T]`
+    ```bash
+    git clone https://github.com/apiad/purely.git
+    cd purely
+    make format-check  # Verifies environment
+    ```
 
-_The "Identity Monad" for fluent programming._
+2.  **Testing:**
+    We use `pytest` with coverage.
 
-- `.map(func)` / `.then(func)`: Transforms the value.
-- `| func`: Syntactic sugar for `.map(func)`.
-- `.tap(func)`: Run side effects.
-- `.ensure(error)`: Crash if the inner value is None.
-- `.value`: Access the raw value (property).
+    ```bash
+    make test-all
+    ```
 
+3.  **Formatting:**
+    Ensure your code is formatted with `black`.
 
-### `Option[T]`
-
-_The "Maybe Monad" for safety._
-
-- `.map(func)`: Transforms value only if it exists.
-- `.filter(predicate)`: Turns value to `None` if predicate fails.
-- `.unwrap(default=..., error=...)`: Extracts value, returns default, or raises error.
-
-
-## 🤝 Collaboration
-
-We believe in pure code and open collaboration!
-
-1. **Fork** the repository.
-2. Create your **Feature Branch** (`git checkout -b feature/AmazingFeature`).
-3. **Commit** your changes (`git commit -m 'Add some AmazingFeature'`).
-4. **Push** to the branch (`git push origin feature/AmazingFeature`).
-5. Open a **Pull Request**.
-
-
-Please ensure you write tests for any new features (we use `pytest`).
+    ```bash
+    make format
+    ```
 
 ## 📝 License
 
-Distributed under the MIT License. See `LICENSE` for more information.
+Distributed under the MIT License.
