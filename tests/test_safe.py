@@ -3,9 +3,11 @@ from purely import ensure, tap, pipe, Chain, Option, safe
 
 # --- Setup: Mock Data Structures for Testing ---
 
+
 class City:
     def __init__(self, name):
         self.name = name
+
 
 class Address:
     def __init__(self, city=None, street="Main St"):
@@ -16,6 +18,7 @@ class Address:
     def get_full_address(self):
         return f"{self.street}, {self.city.name if self.city else 'Unknown'}"
 
+
 class User:
     def __init__(self, address=None, tags=None):
         self.address = address
@@ -24,7 +27,9 @@ class User:
     def get_primary_tag(self):
         return self.tags[0] if self.tags else None
 
+
 # --- Tests ---
+
 
 def test_safe_navigation_happy_path():
     """Test that safe() correctly proxies attributes when they exist."""
@@ -37,7 +42,7 @@ def test_safe_navigation_happy_path():
 
 def test_safe_navigation_none_in_middle():
     """Test that the chain stops gracefully if an intermediate attribute is None."""
-    u = User(address=None) # Address is missing
+    u = User(address=None)  # Address is missing
 
     # .address is None, so .city should be safe (returns Option(None))
     res = safe(u).address.city.name
@@ -101,8 +106,9 @@ def test_mixed_safe_and_functional():
 
     res = (
         safe(u)
-        .address.city.name           # Safe navigation -> Option("Tokyo")
-        .map(lambda s: s.upper())    # Functional map -> Option("TOKYO")
+        .address.city.name.map(  # Safe navigation -> Option("Tokyo")
+            lambda s: s.upper()
+        )  # Functional map -> Option("TOKYO")
         .filter(lambda s: "Y" in s)  # Functional filter -> Option("TOKYO")
     )
     assert ensure(res) == "TOKYO"
@@ -122,7 +128,9 @@ def test_ensure_integration():
     assert ensure(Option("wrapped")) == "wrapped"
 
     # Safe chain result
-    assert ensure(safe(User()).address) is None # It unwraps the Option(None) -> None -> Raise
+    assert (
+        ensure(safe(User()).address) is None
+    )  # It unwraps the Option(None) -> None -> Raise
 
     with pytest.raises(ValueError):
         ensure(Option(None))
