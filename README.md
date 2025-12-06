@@ -2,6 +2,15 @@
 
 **A lightweight elixir for cleaner, safer, and more fluent Python.**
 
+<!-- Project badges -->
+![PyPI - Version](https://img.shields.io/pypi/v/purely)
+![PyPi - Python Version](https://img.shields.io/pypi/pyversions/purely)
+![Github - Open Issues](https://img.shields.io/github/issues-raw/apiad/purely)
+![PyPi - Downloads (Monthly)](https://img.shields.io/pypi/dm/purely)
+![Github - Commits](https://img.shields.io/github/commit-activity/m/apiad/purely)
+
+---
+
 **Purely** is a zero-dependency library designed to bring the best parts of functional programming—safety, pipelines, and immutability—into Python without the academic overhead or complex types. It allows you to write code that reads from top to bottom, rather than inside out.
 
 ## 🧠 Motivation
