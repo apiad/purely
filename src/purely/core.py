@@ -240,7 +240,9 @@ class Chain[T]:
             val = self._value
 
             if not isinstance(val, Iterable) or isinstance(val, (str, bytes)):
-                raise TypeError(f"Chain.map expects a non-string Iterable, got {type(val).__name__}")
+                raise TypeError(
+                    f"Chain.map expects a non-string Iterable, got {type(val).__name__}"
+                )
 
             # Greedily evaluate to list to catch errors immediately during iteration
             return Chain([func(x) for x in val])
@@ -258,7 +260,9 @@ class Chain[T]:
         try:
             val = self._value
             if not isinstance(val, Iterable) or isinstance(val, (str, bytes)):
-                raise TypeError(f"Chain.filter expects a non-string Iterable, got {type(val).__name__}")
+                raise TypeError(
+                    f"Chain.filter expects a non-string Iterable, got {type(val).__name__}"
+                )
 
             return Chain([x for x in val if predicate(x)])
         except Exception as e:
