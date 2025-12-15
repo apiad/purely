@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Callable, Any, Iterable, TypeVar, cast
+from typing import Callable, Any, Iterable, TypeVar, cast as cast_as
 
 """
 PURELY 💧
@@ -149,7 +149,7 @@ def ensure(
 
         raise error
 
-    return cast(T, value)
+    return cast_as(T, value)
 
 
 def safe[T](obj: T | None) -> T:
@@ -160,7 +160,7 @@ def safe[T](obj: T | None) -> T:
     and type-checking from the IDE but maintaining the
     null-safe navigation.
     """
-    return cast(T, Option(obj))
+    return cast_as(T, Option(obj))
 
 
 def tap[T](value: T, func: Callable[[T], Any]) -> T:
@@ -175,6 +175,13 @@ def pipe[T](value: T, *funcs: Callable[[Any], Any]) -> Any:
     for func in funcs:
         result = func(result)
     return result
+
+
+def cast[T](t: type[T], x: Any) -> T:
+    if not isinstance(x, t):
+        raise TypeError(f"Cannot cast {type(x)} to {t}")
+
+    return cast_as(T, x)
 
 
 # -----------------------------------------------------------------------------
@@ -289,7 +296,7 @@ class Chain[T]:
         If Error: Raises the error (or returns default if provided).
         """
         if self._error is None:
-            return cast(T, self._value)
+            return cast_as(T, self._value)
 
         if default is not _SENTINEL:
             return default
