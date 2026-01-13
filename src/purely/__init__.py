@@ -1,5 +1,5 @@
-from .core import ensure, tap, pipe, Chain, Option, safe
+from .core import ensure, tap, pipe, Chain, Option, safe, curry
 
-__all__ = ["ensure", "tap", "pipe", "Chain", "Option", "safe"]
+__all__ = ["ensure", "tap", "pipe", "Chain", "Option", "safe", "curry"]
 
 __version__ = "0.1.0"
