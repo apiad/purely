@@ -254,7 +254,7 @@ class Chain[T]:
         Chain(None).then(lambda x: x + 1) -> Chain(Error) [Swallows exception]
         """
         if self._error:
-            return cast(Chain[R], self)
+            return cast_as(Chain[R], self)
 
         try:
             return Chain(func(self._value))  # type: ignore
