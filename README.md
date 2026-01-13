@@ -159,8 +159,6 @@ Under the hood, `safe` uses `Option`. You can use it directly for functional nul
   * `.keepif(predicate)`: Turns value to `None` if predicate fails.
   * `.unwrap(default=...)`: Extracts value or returns default.
 
-<!-- end list -->
-
 ```python
 from purely import Option
 
