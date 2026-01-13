@@ -2,7 +2,6 @@
 
 **A lightweight elixir for cleaner, safer, and more fluent Python.**
 
-<!-- Project badges -->
 ![PyPI - Version](https://img.shields.io/pypi/v/purely)
 ![PyPi - Python Version](https://img.shields.io/pypi/pyversions/purely)
 ![Github - Open Issues](https://img.shields.io/github/issues-raw/apiad/purely)
@@ -54,14 +53,11 @@ user_data = ensure(get_user(123), "User not found")
 city = safe(user_data).address.city.name | str.upper
 ```
 
------
-
 ## 📚 User Guide
 
 ### 1. `ensure`: The Rusty Unwrap
 
 Stop writing multiline `if x is None` checks. `ensure` asserts that a value is not `None` and returns it, acting as a type-narrowing barrier.
-
 ```python
 from purely import ensure
 
@@ -78,11 +74,9 @@ Accessing deeply nested attributes on objects that might be `None` is a common s
 
 **Key Features:**
 
-  * **Deep Access:** Navigate attributes, items, or methods arbitrarily deep.
-  * **IDE Friendly:** Uses type hinting tricks to keep your autocomplete working.
-  * **Graceful Exit:** If any link in the chain is `None`, the whole chain returns an `Option(None)`.
-
-<!-- end list -->
+* **Deep Access:** Navigate attributes, items, or methods arbitrarily deep.
+* **IDE Friendly:** Uses type hinting tricks to keep your autocomplete working.
+* **Graceful Exit:** If any link in the chain is `None`, the whole chain returns an `Option(None)`.
 
 ```python
 from purely import safe, ensure
@@ -155,9 +149,9 @@ assert result == "Recovered"
 
 Under the hood, `safe` uses `Option`. You can use it directly for functional null handling.
 
-  * `.convert(func)`: Transforms value only if it exists.
-  * `.keepif(predicate)`: Turns value to `None` if predicate fails.
-  * `.unwrap(default=...)`: Extracts value or returns default.
+* `.convert(func)`: Transforms value only if it exists.
+* `.keepif(predicate)`: Turns value to `None` if predicate fails.
+* `.unwrap(default=...)`: Extracts value or returns default.
 
 ```python
 from purely import Option
@@ -166,65 +160,90 @@ val = Option(10).convert(lambda x: x * 2).keepif(lambda x: x > 50)
 assert val.is_none()
 ```
 
+### 5. `curry`: Partial Application
+
+The `curry` decorator transforms a function of multiple arguments into a series of functions. This allows for partial application, which is especially useful when used with `pipe`.
+```python
+from purely import curry, pipe
+
+@curry
+def add(a, b, c):
+    return a + b + c
+
+# Partial application allows building functions on the fly
+add_ten = add(10)
+add_twelve = add_ten(2)
+
+# Perfect for pipelines
+result = pipe(
+    5,
+    add(1, 2), # Equivalent to add(1, 2, 5)
+    lambda x: x * 10
+)
+assert result == 80
+```
+
 ## ⚠️ Known Limitations & Trade-offs
 
 **Purely** prioritizes developer experience (readability, safety, fluency) over raw performance and strict functional purity. Before adopting it, be aware of the following design choices and trade-offs:
 
 ### 1. Eager Evaluation (Not for Big Data)
+
 The `Chain.map()` and `Chain.filter()` methods are **eager**. They immediately consume iterators and materialize results into a list to ensure safety and immediate error capture.
 
 * **The Limitation:** Do not use `Purely` to process infinite generators or massive datasets that don't fit in memory.
 * **The Workaround:** For high-volume data processing, stick to native Python generators, `itertools`, or specialized libraries like `pandas`.
 
 ### 2. Performance Overhead
+
 To provide fluency and safety, **Purely** creates wrapper objects (`Chain`, `Option`) for every operation.
 
 * **The Limitation:** In tight inner loops (e.g., image processing pixels, game engines), this object allocation adds significant overhead compared to raw `if/else` or native list comprehensions.
 * **The Workaround:** Use **Purely** for high-level business logic, API orchestration, and data transformation steps where readability is key. Drop down to native Python for performance-critical hot paths.
 
 ### 3. "Railway" Error Handling
+
 `Chain` captures exceptions to prevent crashes, storing them until you explicitly check for them.
 
 * **The Limitation:** If you create a chain but forget to call `.unwrap()`, `.test()`, or `.catch()`, exceptions (like `ZeroDivisionError`) will be swallowed silently, and the program will continue in a "failed" state without alerting you.
 * **The Workaround:** Always terminate your chains. If a chain is used solely for side effects, end it with `.test()` to assert success.
 
 ### 4. Debugging Proxies
+
 The `safe()` utility uses dynamic proxies (`__getattr__` hooks) to achieve its magic.
 
 * **The Limitation:** Debuggers may step into internal proxy code rather than your business logic, and some static analysis tools (mypy/pylint) might struggle to infer types through complex `safe()` calls without explicit hints.
 * **The Workaround:** If you run into complex type errors, use `ensure()` early to unwrap values back into standard Python types that IDEs understand perfectly.
 
 ### 5. Limited Vocabulary
+
 **Purely** is not a full replacement for `toolz` or Haskell.
 
-* **The Limitation:** It intentionally lacks complex functional primitives like `reduce`, `flat_map`, `curry`, or `compose` to keep the API surface small and approachable.
+* **The Limitation:** It intentionally lacks complex functional primitives like `reduce`, `flat_map`, or `compose` to keep the API surface small and approachable.
 * **The Workaround:** If you need advanced functional patterns, **Purely** might be too simple for you. It plays nicely with standard Python, so you can mix it with standard libraries as needed.
 
 ## 🛠 Contribution
 
 We use `uv` for dependency management and `makefile` for orchestration.
 
-1.  **Clone and Setup:**
+1. **Clone and Setup:**
+```bash
+git clone https://github.com/apiad/purely.git
+cd purely
+make
+```
 
-    ```bash
-    git clone https://github.com/apiad/purely.git
-    cd purely
-    make format-check  # Verifies environment
-    ```
+2. **Testing:**
+We use `pytest` with coverage.
+```bash
+make test-all
+```
 
-2.  **Testing:**
-    We use `pytest` with coverage.
-
-    ```bash
-    make test-all
-    ```
-
-3.  **Formatting:**
-    Ensure your code is formatted with `black`.
-
-    ```bash
-    make format
-    ```
+3. **Formatting:**
+Ensure your code is formatted with `black`.
+```bash
+make format
+```
 
 ## 📝 License
 
