@@ -1,4 +1,5 @@
-from .core import ensure, tap, pipe, Chain, Option, safe, curry
+from .core import ensure, tap, pipe, Chain, Option, safe
+from .curry import curry
 
 __all__ = ["ensure", "tap", "pipe", "Chain", "Option", "safe", "curry"]
 

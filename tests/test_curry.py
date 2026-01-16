@@ -1,100 +1,123 @@
 import pytest
-from purely import curry, pipe
+from curry import curry
 
-# -----------------------------------------------------------------------------
-# 1. BASIC CURRYING TESTS
-# -----------------------------------------------------------------------------
+# --- Setup Functions for Testing ---
 
 
 @curry
-def add(a, b, c):
-    """Adds three numbers."""
+def add(a: int, b: int) -> int:
+    return a + b
+
+
+@curry
+def full_house(a: int, b: int, c: int, d: int, e: int) -> int:
+    return a + b + c + d + e
+
+
+@curry
+def with_kwargs(a: int, b: int, c: int = 10) -> int:
     return a + b + c
 
 
-def test_curry_all_at_once():
-    """Verify it works like a normal function when all args are passed."""
-    assert add(1, 2, 3) == 6
+# --- Test Cases ---
 
 
-def test_curry_step_by_step():
-    """Verify one-by-one argument passing."""
-    step1 = add(1)
+def test_full_application():
+    """Test that providing all arguments at once works normally."""
+    assert add(1, 2) == 3
+    assert full_house(1, 1, 1, 1, 1) == 5
+
+
+def test_step_by_step_currying():
+    """Test one-argument-at-a-time application."""
+    # 2-arity
+    plus_one = add(1)
+    assert callable(plus_one)
+    assert plus_one(2) == 3
+
+    # 5-arity
+    step1 = full_house(1)
     step2 = step1(2)
-    result = step2(3)
-    assert result == 6
-    assert add(1)(2)(3) == 6
+    step3 = step2(3)
+    step4 = step3(4)
+    result = step4(5)
+    assert result == 15
 
 
-def test_curry_partial():
-    """Verify passing multiple args in different chunks."""
-    assert add(1, 2)(3) == 6
-    assert add(1)(2, 3) == 6
+def test_grouped_partial_application():
+    """Test providing multiple but not all arguments."""
+    partial_fh = full_house(1, 2)
+    assert callable(partial_fh)
+
+    partial_more = partial_fh(3, 4)
+    assert callable(partial_more)
+
+    assert partial_more(5) == 15
 
 
-# -----------------------------------------------------------------------------
-# 2. ADVANCED SIGNATURES (Keywords & Defaults)
-# -----------------------------------------------------------------------------
+def test_keyword_arguments():
+    """Test that currying respects keyword arguments."""
+    # Full with keywords
+    assert add(a=1, b=2) == 3
+
+    # Partial with keywords
+    plus_ten = add(b=10)
+    assert plus_ten(a=5) == 15
+
+    # Mix of positional and keyword
+    assert with_kwargs(1)(2) == 13  # a=1, b=2, c defaults to 10
+    assert with_kwargs(1, 2, c=20) == 23
 
 
-@curry
-def greet(greeting, name, punctuation="."):
-    return f"{greeting}, {name}{punctuation}"
+def test_over_application():
+    """Test providing more arguments than the signature requires (standard Python behavior)."""
+    # This should behave like the underlying function
+    with pytest.raises(TypeError):
+        add(1, 2, 3)
 
 
-def test_curry_with_keywords():
-    """Verify keywords can be used in the curried chain."""
-    assert greet("Hello")(name="Alice") == "Hello, Alice."
-    assert greet(name="Bob")("Hi") == "Hi, Bob."
-
-
-def test_curry_with_defaults():
-    """
-    Verify arity is determined by required arguments.
-    'punctuation' has a default, so arity should be 2.
-    """
-    # Should execute after 2 arguments because the 3rd is optional
-    assert greet("Welcome", "Home") == "Welcome, Home."
-
-    # Overriding the default
-    assert greet("Welcome", "Home", "!") == "Welcome, Home!"
-
-
-# -----------------------------------------------------------------------------
-# 3. METADATA & INTEGRATION
-# -----------------------------------------------------------------------------
-
-
-def test_curry_metadata():
-    """Verify @wraps preserves the original function's identity."""
+def test_metadata_preservation():
+    """Test that @wraps correctly preserves function identity."""
     assert add.__name__ == "add"
-    assert "Adds three numbers" in add.__doc__
+    assert "full_house" in str(full_house)
 
 
-def test_curry_pipeline_integration():
-    """Demonstrate why currying is useful with pipe()."""
+def test_reusability_of_partials():
+    """Test that a partial function can be called multiple times with different values."""
+    base = full_house(1, 2, 3)  # needs 2 more
 
-    @curry
-    def multiply(a, b):
-        return a * b
-
-    # 10 -> *2 -> +5
-    # multiply(2) returns a function that takes one argument
-    res = pipe(10, multiply(2), lambda x: x + 5)
-    assert res == 25
+    assert base(4, 5) == 15
+    assert base(10, 20) == 36
+    assert base(0, 0) == 6
 
 
-def test_curry_variadic_limitations():
-    """
-    Verify behavior with *args.
-    Arity is based on fixed required params.
-    """
+def test_zero_arity():
+    """Test that a function with no arguments returns immediately."""
 
     @curry
-    def sum_fixed_and_more(a, b, *args):
-        return a + b + sum(args)
+    def say_hi():
+        return "hi"
 
-    # Arity is 2. It will execute as soon as a and b are provided.
-    assert sum_fixed_and_more(1)(2) == 3
-    # Extra args must be passed with the last required arg or after
-    assert sum_fixed_and_more(1, 2, 3, 4) == 10
+    assert say_hi() == "hi"
+
+
+def test_type_hints_sanity():
+    """
+    Note: Real type checking happens via Mypy/Pyright,
+    but we can verify the protocols at runtime if needed.
+    """
+
+    @curry
+    def triple(a: int, b: int, c: int) -> int:
+        return a * b * c
+
+    # Verify the chain of callables
+    res1 = triple(2)
+    assert callable(res1)
+    res2 = res1(3)
+    assert callable(res2)
+    assert res2(4) == 24
+
+
+if __name__ == "__main__":
+    pytest.main([__file__])

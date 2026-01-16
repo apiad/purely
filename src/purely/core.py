@@ -184,39 +184,6 @@ def cast[T](t: type[T], x: Any) -> T:
     return cast_as(T, x)
 
 
-def curry(func: Callable) -> Callable:
-    """
-    A decorator that makes a function curriable.
-
-    If called with fewer arguments than the signature requires,
-    it returns a new partial function.
-    """
-    sig = inspect.signature(func)
-    # Determine the number of required parameters (excluding *args/**kwargs for simplicity)
-    required_params = [
-        p
-        for p in sig.parameters.values()
-        if p.default == p.empty
-        and p.kind in (p.POSITIONAL_OR_KEYWORD, p.POSITIONAL_ONLY)
-    ]
-    arity = len(required_params)
-
-    @wraps(func)
-    def curried(*args, **kwargs):
-        # If we have enough arguments to satisfy the arity, call the function
-        if len(args) + len(kwargs) >= arity:
-            return func(*args, **kwargs)
-
-        # Otherwise, return a new wrapper that collects more arguments
-        @wraps(func)
-        def more_args(*next_args, **next_kwargs):
-            return curried(*(args + next_args), **{**kwargs, **next_kwargs})
-
-        return more_args
-
-    return curried
-
-
 # -----------------------------------------------------------------------------
 # 3. FLUENT INTERFACE (Chain)
 # -----------------------------------------------------------------------------
