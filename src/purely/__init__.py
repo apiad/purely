@@ -1,6 +1,8 @@
 from .core import ensure, tap, pipe, Chain, Option, safe
 from .curry import curry
 from .di import Registry, depends
+from .dispatch import dispatcher
+from .result import Result, Ok, Err
 
 __all__ = [
     "ensure",
@@ -12,6 +14,10 @@ __all__ = [
     "curry",
     "Registry",
     "depends",
+    "dispatcher",
+    "Result",
+    "Ok",
+    "Err",
 ]
 
 __version__ = "0.4.2"
