@@ -12,16 +12,6 @@
 
 **Purely** is a zero-dependency library designed to bring the best parts of functional programming—safety, pipelines, and immutability—into Python without the academic overhead or complex types. It allows you to write code that reads from top to bottom, rather than inside out.
 
-## 🧠 Motivation
-
-Python is a beautiful language, but production code often becomes cluttered with defensive checks and nested function calls.
-
-1.  **The "None" Paranoia:** We often write 3 lines of code just to check if a variable exists before using it.
-2.  **Nested Hell:** Functional transformations often look like `save(validate(parse(read(data))))`, which forces you to read backwards.
-3.  **List Comprehension Fatigue:** While powerful, chaining multiple list comprehensions (map/filter/reduce) can quickly become unreadable.
-
-**Purely** solves this with three core tools: `ensure` for assertions, `safe` for null-safe navigation, and `Chain` for fluent pipelines.
-
 ## 📦 Installation
 
 **Purely** leverages modern Python features (generics) and requires **Python 3.12+**.
@@ -30,220 +20,186 @@ Python is a beautiful language, but production code often becomes cluttered with
 pip install purely
 ```
 
-## 🚀 Quick Start
+## ✨ Features
 
-### The Old Way vs. The Purely Way
-
-```python
-from purely import ensure, safe, Chain
-
-# ❌ The Old Way: Defensive and Nested
-user_data = get_user(123)
-if user_data is None:
-    raise ValueError("User not found")
-
-city = None
-if user_data.address and user_data.address.city:
-    city = user_data.address.city.name.upper()
-
-# ✅ The Purely Way: Fluent and Safe
-user_data = ensure(get_user(123), "User not found")
-
-# Null-safe navigation + Pipeline
-city = safe(user_data).address.city.name | str.upper
-```
+* **Functional Containers**: `Option` for null-safety and `Result` for explicit error handling.
+* **Safe Navigation**: Access deeply nested attributes without worrying about `AttributeError`.
+* **Fluent Pipelines**: Chain operations and vectorize list transformations with `Chain` and `pipe`.
+* **Architectural Decoupling**: Interface-aware Dependency Injection and Multiple Dispatch.
+* **Ergonomic Currying**: Partial application with full type-hint support for IDEs.
 
 ## 📚 User Guide
 
-### 1. `ensure`: The Rusty Unwrap
+### 1. Functional Containers (Low-Level)
 
-Stop writing multiline `if x is None` checks. `ensure` asserts that a value is not `None` and returns it, acting as a type-narrowing barrier.
-```python
-from purely import ensure
+#### Option
 
-# Throws ValueError("API Key missing") if the value is None
-api_key = ensure(os.getenv("API_KEY"), "API Key missing")
-
-# Works transparently with Purely's Option/Safe types
-name = ensure(safe(user).name)
-```
-
-### 2. `safe`: Null-Safe Navigation
-
-Accessing deeply nested attributes on objects that might be `None` is a common source of `AttributeError`. The `safe` utility wraps your object in a proxy that swallows `None` errors gracefully.
-
-**Key Features:**
-
-* **Deep Access:** Navigate attributes, items, or methods arbitrarily deep.
-* **IDE Friendly:** Uses type hinting tricks to keep your autocomplete working.
-* **Graceful Exit:** If any link in the chain is `None`, the whole chain returns an `Option(None)`.
-
-```python
-from purely import safe, ensure
-
-class User:
-    def __init__(self, address=None):
-        self.address = address
-
-u = User(address=None)
-
-# ❌ Raises AttributeError
-# print(u.address.city)
-
-# ✅ Returns Option(None) - No crash
-result = safe(u).address.city
-
-# Use ensure() to crash intentionally if the value MUST be there
-city = ensure(result, "City is required")
-```
-
-### 3. `Chain`: The Fluent Pipe
-
-`Chain` is a unified wrapper that allows you to pipe values through functions and perform vectorized operations on lists.
-
-#### Simple Pipelines
-
-Use `.then()` or the `|` operator to pass data forward.
-
-```python
-from purely import Chain
-
-def double(x): return x * 2
-
-# 5 -> 10 -> "10"
-result = Chain(5) | double | str
-assert result.unwrap() == "10"
-```
-
-#### Vectorized Operations
-
-If the wrapped value is a list (or iterable), `.map()` and `.filter()` apply to **each item** in the list, not the list itself.
-
-```python
-users = ["alice", "bob", "charlie"]
-
-names = (
-    Chain(users)
-    .filter(lambda name: len(name) > 3)  # Filters list: ["alice", "charlie"]
-    .map(lambda name: name.upper())      # Maps list: ["ALICE", "CHARLIE"]
-    .unwrap()
-)
-```
-
-#### Error Handling
-
-`Chain` captures exceptions effectively, allowing you to handle errors at the end of the pipeline.
-
-```python
-result = (
-    Chain(10)
-    .then(lambda x: x / 0)        # Fails internally (ZeroDivisionError)
-    .then(lambda x: x + 10)       # Skipped
-    .catch(lambda e: "Recovered") # Catches error and returns fallback
-    .unwrap()
-)
-assert result == "Recovered"
-```
-
-### 4. `Option`: Functional Safety
-
-Under the hood, `safe` uses `Option`. You can use it directly for functional null handling.
-
-* `.convert(func)`: Transforms value only if it exists.
-* `.keepif(predicate)`: Turns value to `None` if predicate fails.
-* `.unwrap(default=...)`: Extracts value or returns default.
+Handles missing values without explicit `if x is None` checks.
 
 ```python
 from purely import Option
 
-val = Option(10).convert(lambda x: x * 2).keepif(lambda x: x > 50)
-assert val.is_none()
+# Option(10) -> convert to 20 -> keep because > 5
+val = Option(10).convert(lambda x: x * 2).keepif(lambda x: x > 5)
+assert val.unwrap() == 20
+
+# Option(None) -> chain broken
+empty = Option(None).convert(lambda x: x + 1)
+assert empty.is_none()
 ```
 
-### 5. `curry`: Partial Application
+#### Result
 
-The `curry` decorator transforms a function of multiple arguments into a series of functions. This allows for partial application, which is especially useful when used with `pipe`.
+Explicit success (`Ok`) or failure (`Err`) states for "Railway Oriented Programming".
+
 ```python
-from purely import curry, pipe
+from purely.result import Ok, Err
+
+def divide(a, b):
+    return Ok(a / b) if b != 0 else Err("Division by zero")
+
+# Fluent error handling without try/except blocks
+res = divide(10, 2).then(lambda x: x * 2).unwrap()
+assert res == 10.0
+```
+
+#### ensure
+
+Asserts the existence of a value. It unwraps an `Option` or checks if a raw value is `None`, raising a custom error if the check fails.
+
+```python
+from purely import ensure, Option
+
+# Unwraps a Some(value)
+val = ensure(Option(10))
+assert val == 10
+
+# Raises ValueError if None
+try:
+    ensure(None, error="Missing data")
+except ValueError as e:
+    print(e)  # "Missing data"
+```
+
+### 2. Flow & Navigation (Middle-Level)
+
+#### safe
+
+Enables null-safe navigation through nested objects while maintaining IDE autocompletion.
+
+```python
+from purely import safe, ensure
+
+user = get_user_or_none() # Could be None
+
+# Access .address.city.name safely. Returns Option(None) if any step fails.
+city_name = safe(user).address.city.name
+
+# Crash intentionally only when you must have the value
+print(ensure(city_name, "City name is required"))
+```
+
+#### pipe
+
+A simple utility to pass a value through a sequence of functions.
+
+```python
+from purely import pipe
+
+# 5 -> 10 -> 20 -> "20"
+result = pipe(5, lambda x: x * 2, lambda x: x + 10, str)
+assert result == "20"
+```
+
+#### Chain
+
+A unified container for pipelines, vectorized list operations, and captured error handling.
+
+```python
+from purely import Chain
+
+names = (
+    Chain(["alice", "bob", "charlie"])
+    .filter(lambda n: len(n) > 3)  # ["alice", "charlie"]
+    .map(lambda n: n.upper())      # ["ALICE", "CHARLIE"]
+    .unwrap()
+)
+
+# Exception handling inside the chain
+recovered = (
+    Chain(10)
+    .then(lambda x: x / 0)        # Captures ZeroDivisionError
+    .catch(lambda e: 0)           # Recovers with fallback
+    .unwrap()
+)
+assert recovered == 0
+```
+
+### 3. High-Level Architecture
+
+#### curry
+
+Transforms functions of multiple arguments into a series of partial applications.
+
+```python
+from purely import curry
 
 @curry
-def add(a, b, c):
-    return a + b + c
+def multiply(a, b):
+    return a * b
 
-# Partial application allows building functions on the fly
-add_ten = add(10)
-add_twelve = add_ten(2)
-
-# Perfect for pipelines
-result = pipe(
-    5,
-    add(1, 2), # Equivalent to add(1, 2, 5)
-    lambda x: x * 10
-)
-assert result == 80
+double = multiply(2)
+assert double(10) == 20
 ```
 
-## ⚠️ Known Limitations & Trade-offs
+#### Registry (Dependency Injection)
 
-**Purely** prioritizes developer experience (readability, safety, fluency) over raw performance and strict functional purity. Before adopting it, be aware of the following design choices and trade-offs:
+A scoped, interface-aware DI system with automatic MRO (Method Resolution Order) discovery.
 
-### 1. Eager Evaluation (Not for Big Data)
+```python
+from purely import Registry, depends
 
-The `Chain.map()` and `Chain.filter()` methods are **eager**. They immediately consume iterators and materialize results into a list to ensure safety and immediate error capture.
+reg = Registry()
+# Registering Postgres automatically satisfies Database and Storage interfaces
+reg.register(PostgresDatabase())
 
-* **The Limitation:** Do not use `Purely` to process infinite generators or massive datasets that don't fit in memory.
-* **The Workaround:** For high-volume data processing, stick to native Python generators, `itertools`, or specialized libraries like `pandas`.
+@reg.inject
+def save_user(user, db: Database = depends(Database)):
+    db.save(user)
 
-### 2. Performance Overhead
+save_user(new_user)
+```
 
-To provide fluency and safety, **Purely** creates wrapper objects (`Chain`, `Option`) for every operation.
+#### dispatcher (Multiple Dispatch)
 
-* **The Limitation:** In tight inner loops (e.g., image processing pixels, game engines), this object allocation adds significant overhead compared to raw `if/else` or native list comprehensions.
-* **The Workaround:** Use **Purely** for high-level business logic, API orchestration, and data transformation steps where readability is key. Drop down to native Python for performance-critical hot paths.
+Runtime polymorphism based on type signatures and value-based predicates.
 
-### 3. "Railway" Error Handling
+```python
+from purely import dispatcher
 
-`Chain` captures exceptions to prevent crashes, storing them until you explicitly check for them.
+@dispatcher
+def process(data):
+    return "Generic data"
 
-* **The Limitation:** If you create a chain but forget to call `.unwrap()`, `.test()`, or `.catch()`, exceptions (like `ZeroDivisionError`) will be swallowed silently, and the program will continue in a "failed" state without alerting you.
-* **The Workaround:** Always terminate your chains. If a chain is used solely for side effects, end it with `.test()` to assert success.
+@process.dispatch
+def _(data: list):
+    return f"List of length {len(data)}"
 
-### 4. Debugging Proxies
+@process.when(lambda d: isinstance(d, int) and d < 0)
+def _(data):
+    return "Negative number"
 
-The `safe()` utility uses dynamic proxies (`__getattr__` hooks) to achieve its magic.
-
-* **The Limitation:** Debuggers may step into internal proxy code rather than your business logic, and some static analysis tools (mypy/pylint) might struggle to infer types through complex `safe()` calls without explicit hints.
-* **The Workaround:** If you run into complex type errors, use `ensure()` early to unwrap values back into standard Python types that IDEs understand perfectly.
-
-### 5. Limited Vocabulary
-
-**Purely** is not a full replacement for `toolz` or Haskell.
-
-* **The Limitation:** It intentionally lacks complex functional primitives like `reduce`, `flat_map`, or `compose` to keep the API surface small and approachable.
-* **The Workaround:** If you need advanced functional patterns, **Purely** might be too simple for you. It plays nicely with standard Python, so you can mix it with standard libraries as needed.
+assert process([1, 2]) == "List of length 2"
+assert process(-5) == "Negative number"
+```
 
 ## 🛠 Contribution
 
-We use `uv` for dependency management and `makefile` for orchestration.
+We use `uv` for dependency management and a `makefile` for orchestration.
 
-1. **Clone and Setup:**
-```bash
-git clone https://github.com/apiad/purely.git
-cd purely
-make
-```
-
-2. **Testing:**
-We use `pytest` with coverage.
-```bash
-make test-all
-```
-
-3. **Formatting:**
-Ensure your code is formatted with `black`.
-```bash
-make format
-```
+1. **Setup**: Clone the repository and run `make`.
+2. **Formatting**: Ensure code adheres to `black` formatting using `make format`.
+3. **Testing**: Run the full test suite with `make test-all`.
 
 ## 📝 License
 
