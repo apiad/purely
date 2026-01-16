@@ -1,5 +1,5 @@
 import pytest
-from curry import curry
+from purely import curry
 
 # --- Setup Functions for Testing ---
 
@@ -117,7 +117,3 @@ def test_type_hints_sanity():
     res2 = res1(3)
     assert callable(res2)
     assert res2(4) == 24
-
-
-if __name__ == "__main__":
-    pytest.main([__file__])
