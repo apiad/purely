@@ -1,5 +1,6 @@
 from functools import wraps
 from inspect import signature
+import inspect
 from typing import Any, Callable, Dict, Type, TypeVar, Optional, cast
 
 T = TypeVar("T")
@@ -73,6 +74,20 @@ class Registry:
             for name, param in sig.parameters.items()
             if isinstance(param.default, _Depends)
         }
+
+        if inspect.iscoroutinefunction(func):
+
+            @wraps(func)
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
+                resolved_kwargs = {}
+
+                for name, interface in injection_points.items():
+                    if name not in kwargs:
+                        resolved_kwargs[name] = self.resolve(interface)
+
+                return await func(*args, **{**resolved_kwargs, **kwargs})
+
+            return async_wrapper
 
         @wraps(func)
         def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
