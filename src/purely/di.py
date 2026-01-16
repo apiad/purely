@@ -1,6 +1,6 @@
 from functools import wraps
 from inspect import signature
-from typing import Any, Callable, Dict, Type, TypeVar, Optional
+from typing import Any, Callable, Dict, Type, TypeVar, Optional, cast
 
 T = TypeVar("T")
 
@@ -12,8 +12,8 @@ class _Depends:
         self.interface = interface
 
 
-def depends(interface: Type) -> Any:
-    return _Depends(interface)
+def depends[T](interface: type[T]) -> T:
+    return cast(T, _Depends(interface))
 
 
 # --- 2. THE REGISTRY ---
